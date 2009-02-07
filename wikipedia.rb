@@ -37,26 +37,11 @@ class Wikipedia < SourceAdapter
       puts key + ' = ' + val
     }
       
+    data = rewrite_urls(data)
     data = [data].pack("m").gsub("\n", "")
     
-    packets = data.length / 255
-    puts "packets to make #{packets}"
-
-    0.upto(packets) do |packet|
-      o=ObjectValue.new
-      o.source_id= @source.id
-      o.object= param
-      o.attrib= "p_#{packet}"
-      
-      page_data = data[packet*255, 255] # send no more than 255 chars at a time
-      
-      o.value=page_data
-      o.user_id=nil # never user specific
-      o.save
-    end
-    
     ObjectValue.create(:source_id=>@source.id, :object => param, :attrib => "data_length", :value => data.length.to_s)
-    ObjectValue.create(:source_id=>@source.id, :object => param, :attrib => "packet_count", :value => (packets+1).to_s)
+    ObjectValue.create(:source_id=>@source.id, :object => param, :attrib => "data", :value => data)
   end
 
 #  [{"name"=>"search", "value"=>"diamond"}]
@@ -67,5 +52,16 @@ class Wikipedia < SourceAdapter
     @search_query=name_value_list[0]["value"]
     
   end
+  
+  protected 
+    # rewrite URLs of the form:
+    # <a href="/wiki/Feudal_System"
+    # to
+    # <a href="/Wikipedia/WikipediaPage/{Feudal_System}/fetch"
+    
+    def rewrite_urls(html)
+      html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
+      html.gsub(/href=\"\/wiki\/([\w\(\)]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+    end
 
 end
