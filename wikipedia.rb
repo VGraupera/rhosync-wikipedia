@@ -21,8 +21,7 @@ class Wikipedia < SourceAdapter
     
     param=@search_query.gsub(" ", "_")
     
-    # @source.url
-    http = Net::HTTP.new('en.m.wikitest.org', 4000)
+    http = Net::HTTP.new(@source.url)
     path = "/wiki/#{param}"
 
     headers = {
