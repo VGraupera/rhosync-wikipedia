@@ -9,61 +9,84 @@ class Wikipedia < SourceAdapter
     puts "Wikipedia initialize with #{source.inspect.to_s}"
     
     super(source,credential)
-    
-    @search_query ||= "::Home"
   end
   
+  def ask(question)
+    puts "Wikipedia ask with #{question.inspect.to_s}\n"
+    
+    @search_query = question[:search]
+    
+    data = ask_wikipedia @search_query
+    
+    # return array of objects that correspond
+    [ ObjectValue.new(:source_id=>@source.id, :object => @search_query, :attrib => "data_length", :value => data.length.to_s), 
+      ObjectValue.new(:source_id=>@source.id, :object => @search_query, :attrib => "data", :value => data) ]
+  end
+  
+  ####### begin legacy interface #######
+    
   def query
-    puts "Wikipedia query"
+    @search_query ||= "::Home"
   end
 
   def sync
     puts "Wikipedia sync with #{@search_query}"
     
-    param=@search_query.gsub(" ", "_")
-    path = "/wiki/#{param}"
+    data = ask_wikipedia @search_query
+    
+    ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data_length", :value => data.length.to_s)
+    ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data", :value => data)
+  end
 
+  #  [{"name"=>"search", "value"=>"diamond"}]
+  def create(name_value_list)
+    puts "Wikipedia create"
+
+    puts name_value_list.inspect.to_s
+    @search_query=name_value_list[0]["value"]
+  end
+  
+  ####### end legacy interface #######
+  
+  protected
+  
+  def wiki_name(raw_string)
+    raw_string.gsub(" ", "_")
+  end
+  
+  def ask_wikipedia(search)
+    path = "/wiki/#{wiki_name(search)}"
+
+    # temporarily we hardcode these headers which are required by m.wikipedia.org
     headers = {
       'User-Agent' => 'Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0 Mobile/1C28'
     }
     
     response, data = fetch(path, headers)
-  
     data = rewrite_urls(data)
-    data = [data].pack("m").gsub("\n", "")
     
-    ObjectValue.create(:source_id=>@source.id, :object => param, :attrib => "data_length", :value => data.length.to_s)
-    ObjectValue.create(:source_id=>@source.id, :object => param, :attrib => "data", :value => data)
-  end
-
-#  [{"name"=>"search", "value"=>"diamond"}]
-  def create(name_value_list)
-    puts "Wikipedia create"
-    
-    puts name_value_list.inspect.to_s
-    @search_query=name_value_list[0]["value"]
-    
+    [data].pack("m").gsub("\n", "")
   end
   
-  protected 
-  
-  # follow redirects
+  # follow redirects here on the server until we are at final page
   def fetch(path, headers, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
 
     http = Net::HTTP.new(@source.url)
     response, data = http.get(path, headers)
     
-    # puts "Code = #{response.code}"
-    # puts "Message = #{response.message}"
-    # response.each {|key, val|
-    #   puts key + ' = ' + val
-    # }
+    puts "Code = #{response.code}"
+    puts "Message = #{response.message}"
+    response.each {|key, val|
+      puts key + ' = ' + val
+    }
     
     case response
     when Net::HTTPSuccess     then 
       nil
-    when Net::HTTPRedirection then 
+    when Net::HTTPRedirection then
+      # location has changed so in effect new search query
+      @search_query = response['location'].sub('/wiki/', '')
       response, data = fetch(response['location'], headers, limit - 1)
     else
       response.error!
@@ -80,6 +103,7 @@ class Wikipedia < SourceAdapter
   # <a href="/wiki/Feudal_System"
   # to
   # <a href="/Wikipedia/WikipediaPage/{Feudal_System}/fetch"
+  #
   
   # Did you mean: <a href="/w/index.php?title=Special:Search&amp;search=blackberry&amp;fulltext=Search&amp;ns0=1&amp;redirs=0" title="Special:Search">
   #         <em>blackberry</em>
