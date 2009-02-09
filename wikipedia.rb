@@ -9,7 +9,7 @@ class Wikipedia < SourceAdapter
     
     super(source,credential)
     
-    @search_query||="Ruby on Rails"
+    @search_query ||= "::Home"
   end
   
   def query
@@ -53,14 +53,29 @@ class Wikipedia < SourceAdapter
   end
   
   protected 
+    #
+    # wikipedia pages are shown in an iframe in the Rhodes app
+    # here we rewrite URLs so that they work in that context
+    #
     # rewrite URLs of the form:
     # <a href="/wiki/Feudal_System"
     # to
     # <a href="/Wikipedia/WikipediaPage/{Feudal_System}/fetch"
     
+    # Did you mean: <a href="/w/index.php?title=Special:Search&amp;search=blackberry&amp;fulltext=Search&amp;ns0=1&amp;redirs=0" title="Special:Search">
+    #         <em>blackberry</em>
+    #       </a>
+    
     def rewrite_urls(html)
+      # images
+      html = html.gsub('<img src="/images/logo-en.png" />', '<img src="http://en.m.wikipedia.org/images/logo-en.png" />')
+      # javascripts
+      html = html.gsub('window.location', 'top.location')
+      html = html.gsub('/wiki/::Random', '/Wikipedia/WikipediaPage/{::Random}/fetch')
+      #stylesheets
       html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
-      html.gsub(/href=\"\/wiki\/([\w\(\)]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+      # links to other articles
+      html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,_]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
     end
 
 end
