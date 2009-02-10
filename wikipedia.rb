@@ -118,6 +118,6 @@ class Wikipedia < SourceAdapter
     #stylesheets
     html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
     # links to other articles
-    html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,_]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+    html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
   end
 end
