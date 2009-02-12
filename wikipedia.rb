@@ -72,7 +72,10 @@ class Wikipedia < SourceAdapter
   def fetch(path, headers, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
 
-    http = Net::HTTP.new(@source.url)
+    mobile_wikipedia_server_url = @source.url
+    mobile_wikipedia_server_url.gsub!('http://', '')
+    
+    http = Net::HTTP.new(mobile_wikipedia_server_url)
     response, data = http.get(path, headers)
     
     puts "Code = #{response.code}"
