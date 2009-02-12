@@ -14,13 +14,17 @@ class Wikipedia < SourceAdapter
   def ask(question)
     puts "Wikipedia ask with #{question.inspect.to_s}\n"
     
-    @search_query = question[:search]
-    
-    data = ask_wikipedia @search_query
+    data = ask_wikipedia question
     
     # return array of objects that correspond
-    [ ObjectValue.new(:source_id=>@source.id, :object => @search_query, :attrib => "data_length", :value => data.length.to_s), 
-      ObjectValue.new(:source_id=>@source.id, :object => @search_query, :attrib => "data", :value => data) ]
+    [ ObjectValue.new(:source_id=>@source.id, 
+                      :object => question, 
+                      :attrib => "data_length", 
+                      :value => data.length.to_s),
+      ObjectValue.new(:source_id=>@source.id, 
+                      :object => question, 
+                      :attrib => "data", 
+                      :value => data) ]
   end
   
   ####### begin legacy interface #######
@@ -28,7 +32,7 @@ class Wikipedia < SourceAdapter
   def query
     @search_query ||= "::Home"
   end
-
+ 
   def sync
     puts "Wikipedia sync with #{@search_query}"
     
@@ -37,11 +41,11 @@ class Wikipedia < SourceAdapter
     ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data_length", :value => data.length.to_s)
     ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data", :value => data)
   end
-
-  #  [{"name"=>"search", "value"=>"diamond"}]
+ 
+  # [{"name"=>"search", "value"=>"diamond"}]
   def create(name_value_list)
     puts "Wikipedia create"
-
+ 
     puts name_value_list.inspect.to_s
     @search_query=name_value_list[0]["value"]
   end
@@ -56,7 +60,7 @@ class Wikipedia < SourceAdapter
   
   def ask_wikipedia(search)
     path = "/wiki/#{wiki_name(search)}"
-
+ 
     # temporarily we hardcode these headers which are required by m.wikipedia.org
     headers = {
       'User-Agent' => 'Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0 Mobile/1C28'
@@ -71,7 +75,7 @@ class Wikipedia < SourceAdapter
   # follow redirects here on the server until we are at final page
   def fetch(path, headers, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
-
+ 
     mobile_wikipedia_server_url = @source.url
     mobile_wikipedia_server_url.gsub!('http://', '')
     
@@ -85,7 +89,7 @@ class Wikipedia < SourceAdapter
     }
     
     case response
-    when Net::HTTPSuccess     then 
+    when Net::HTTPSuccess then
       nil
     when Net::HTTPRedirection then
       # location has changed so in effect new search query
@@ -97,7 +101,7 @@ class Wikipedia < SourceAdapter
     
     return response, data
   end
-
+ 
   #
   # wikipedia pages are shown in an iframe in the Rhodes app
   # here we rewrite URLs so that they work in that context
@@ -109,8 +113,8 @@ class Wikipedia < SourceAdapter
   #
   
   # Did you mean: <a href="/w/index.php?title=Special:Search&amp;search=blackberry&amp;fulltext=Search&amp;ns0=1&amp;redirs=0" title="Special:Search">
-  #         <em>blackberry</em>
-  #       </a>
+  # <em>blackberry</em>
+  # </a>
   
   def rewrite_urls(html)
     # images
