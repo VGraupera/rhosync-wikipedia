@@ -11,47 +11,55 @@ class Wikipedia < SourceAdapter
     super(source,credential)
   end
   
+  #
+  # direct response to query from device
+  # in the case of wikipedia we return 2 objects per page
+  # the header object has information about the page, and
+  # the data object has the contents of the page
+  #
+  # we split this in 2 becasue the data portions are large and we only want
+  # to load them selectively for pages to conserve RAM usage on device
+  #
   def ask(question)
     puts "Wikipedia ask with #{question.inspect.to_s}\n"
     
     data = ask_wikipedia question
     
+    header_id = "header_#{question}"
+    data_id = "data_#{question}"
+    
     # return array of objects that correspond
-    [ ObjectValue.new(:source_id=>@source.id, 
-                      :object => question, 
-                      :attrib => "data_length", 
-                      :value => data.length.to_s),
-      ObjectValue.new(:source_id=>@source.id, 
-                      :object => question, 
-                      :attrib => "data", 
-                      :value => data) ]
+    [ 
+      ObjectValue.new(:source_id=>@source.id, :object => header_id, 
+                      :attrib => "section", :value => "header"),
+                      
+      ObjectValue.new(:source_id=>@source.id, :object => header_id, 
+                      :attrib => "created_at", :value => DateTime.now.to_s),
+                    
+      ObjectValue.new(:source_id=>@source.id, :object => header_id, 
+                      :attrib => "question", :value => question),
+                      
+      ObjectValue.new(:source_id=>@source.id, :object => header_id, 
+                      :attrib => "data_id", :value => data_id),
+                                  
+      #########
+      
+      ObjectValue.new(:source_id=>@source.id, :object => data_id, 
+                      :attrib => "section", :value => "data"),
+                      
+      ObjectValue.new(:source_id=>@source.id, :object => data_id, 
+                      :attrib => "data_length", :value => data.length.to_s),
+                      
+      ObjectValue.new(:source_id=>@source.id, :object => data_id, 
+                      :attrib => "data", :value => data),
+
+    ]
   end
   
-  ####### begin legacy interface #######
-    
-  def query
-    @search_query ||= "::Home"
-  end
- 
+  # NO-OP
   def sync
-    puts "Wikipedia sync with #{@search_query}"
-    
-    data = ask_wikipedia @search_query
-    
-    ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data_length", :value => data.length.to_s)
-    ObjectValue.create(:source_id=>@source.id, :object => @search_query, :attrib => "data", :value => data)
   end
- 
-  # [{"name"=>"search", "value"=>"diamond"}]
-  def create(name_value_list)
-    puts "Wikipedia create"
- 
-    puts name_value_list.inspect.to_s
-    @search_query=name_value_list[0]["value"]
-  end
-  
-  ####### end legacy interface #######
-  
+    
   protected
   
   def wiki_name(raw_string)
