@@ -63,7 +63,7 @@ class Wikipedia < SourceAdapter
   protected
   
   def wiki_name(raw_string)
-    raw_string.gsub(" ", "_")
+    ERB::Util.url_encode(raw_string.gsub(" ", "_"))
   end
   
   def ask_wikipedia(search)
@@ -88,6 +88,8 @@ class Wikipedia < SourceAdapter
     mobile_wikipedia_server_url.gsub!('http://', '')
     
     http = Net::HTTP.new(mobile_wikipedia_server_url)
+    http.set_debug_output $stderr
+    
     response, data = http.get(path, headers)
     
     puts "Code = #{response.code}"
@@ -133,6 +135,8 @@ class Wikipedia < SourceAdapter
     #stylesheets
     html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
     # links to other articles
-    html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+    html = html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+    # redlinks
+    html.gsub(%Q(href="/w/index.php?), %Q(target="_top" href="http://en.wikipedia.org/w/index.php?))
   end
 end
