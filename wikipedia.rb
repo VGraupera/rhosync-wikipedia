@@ -20,14 +20,28 @@ class Wikipedia < SourceAdapter
   # we split this in 2 becasue the data portions are large and we only want
   # to load them selectively for pages to conserve RAM usage on device
   #
-  def ask(question)
-    puts "Wikipedia ask with #{question.inspect.to_s}\n"
+  def ask(question_from_device)
+    ask_params = CGI::parse(question_from_device)
+    
+    question = ask_params['article'][0]
+    refresh = ask_params['refresh'][0]
+    
+    puts "Wikipedia ask with #{ask_params.inspect.to_s}\n"
     
     data = ask_wikipedia question
     
     header_id = "header_#{question}"
     data_id = "data_#{question}"
     
+    # if we are asking to refresh an existing page we have to give it a new object id
+    # that is different that the existing object ID or we will get duplicates on the device
+    # here we append "_refresh". Device should delete "_refresh" version and overwrite existing
+    # TODO: what if there is a device error and there is already a _refresh on device
+    if refresh
+      header_id += "_refresh"
+      data_id += "_refresh"
+    end
+      
     # return array of objects that correspond
     [ 
       ObjectValue.new(:source_id=>@source.id, :object => header_id, 
@@ -134,11 +148,14 @@ class Wikipedia < SourceAdapter
     
     # javascripts
     html = html.gsub('window.location', 'top.location')
-    html = html.gsub('/wiki/::Random', '/Wikipedia/WikipediaPage/{::Random}/fetch')
+    html = html.gsub('/wiki/::Random', '/app/WikipediaPage/{::Random}/fetch')
+    
     #stylesheets
-    html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
+    # html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
+    
     # links to other articles
-    html = html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/Wikipedia/WikipediaPage/{\1}/fetch" target="_top"')
+    html = html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/app/WikipediaPage/{\1}/fetch" target="_top"')
+    
     # redlinks
     html.gsub(%Q(href="/w/index.php?), %Q(target="_top" href="http://en.wikipedia.org/w/index.php?))
   end
