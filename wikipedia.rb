@@ -26,13 +26,16 @@ class Wikipedia < SourceAdapter
     # currently device cannot pass multiple params via ask so we split apart the params here
     device_params = CGI::parse("question="+params['question'])
     
+    puts "device params = #{device_params.inspect.to_s}"
+    
     question = device_params['question']
-    refresh = device_params['refresh']
+    question = question[0] if question.class == Array
+    refresh = device_params['refresh'].present?
     
     data = ask_wikipedia question
     
-    header_id = "header_#{question}"
-    data_id = "data_#{question}"
+    header_id = "header_#{CGI::escape(question)}"
+    data_id = "data_#{CGI::escape(question)}"
     
     # if we are asking to refresh an existing page we have to give it a new object id
     # that is different that the existing object ID or we will get duplicates on the device
@@ -80,12 +83,20 @@ class Wikipedia < SourceAdapter
     
   protected
   
-  def wiki_name(raw_string)
-    raw_string == "::Home" ? raw_string : ERB::Util.url_encode(raw_string.gsub(" ", "_"))
-  end
+  # def wiki_name(raw_string)
+  #   raw_string == "::Home" ? raw_string : ERB::Util.url_encode(raw_string.gsub(" ", "_"))
+  # end
   
   def ask_wikipedia(search)
-    path = "/wiki/#{wiki_name(search)}"
+    # what is passed in when following a link will be encoded
+    search = CGI::unescape(search)
+    
+    # looks like the encoding we are receiving is not the same as what wikipedia will take in some cases 
+    # so we decode and then re-encode this so it goes to wikipedia correctly
+    search = CGI::escape(search) unless search == "::Home"
+
+    path = "/wiki/#{search}"
+    puts "path = #{path}"
  
     # temporarily we hardcode these headers which are required by m.wikipedia.org
     headers = {
@@ -106,6 +117,8 @@ class Wikipedia < SourceAdapter
     mobile_wikipedia_server_url = @source.url
     mobile_wikipedia_server_url.gsub!('http://', '')
     
+    # should be http://en.m.wikipedia.org
+    puts "mobile_wikipedia_server_url = #{mobile_wikipedia_server_url}"
     http = Net::HTTP.new(mobile_wikipedia_server_url)
     http.set_debug_output $stderr
     
@@ -157,8 +170,12 @@ class Wikipedia < SourceAdapter
     #stylesheets
     # html = html.gsub('<link href=\'/stylesheets/application.css\'', '<link href=\'http://m.wikipedia.org/stylesheets/application.css\'')
     
-    # links to other articles
-    html = html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,._]*)\"/i,'href="/app/WikipediaPage/{\1}/fetch" target="_top"')
+    #links to other articles
+    html = html.gsub(/href=\"\/wiki\/([\w\(\)%:\-\,\/._]*)\"/i) do |s|
+      # parameter must be double encoded, rhodes will unencode once automatically
+      # if not double encoded will fail
+      %Q(href="/app/WikipediaPage/{#{CGI::escape(CGI::escape($1))}}/fetch" target="_top")
+    end
     
     # redlinks
     html.gsub(%Q(href="/w/index.php?), %Q(target="_top" href="http://en.wikipedia.org/w/index.php?))
